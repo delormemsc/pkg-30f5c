@@ -1,0 +1,22 @@
+# force-tunnel: домены, которых не хватает в списках Подкопа, но которые должны идти через туннель
+# одна строка = один домен (без www, покрывает поддомены)
+
+# TBC Bank (Грузия)
+tbcbank.ge
+tbconline.ge
+tbcconcept.ge
+tbcpay.ge
+tbccheckout.ge
+tbcbank.support
+
+# Bank of Georgia
+bog.ge
+bankofgeorgia.ge
+ipay.ge
+
+# OpenAI / ChatGPT / Codex
+openai.com
+chatgpt.com
+oaistatic.com
+oaiusercontent.com
+codex.openai.com
