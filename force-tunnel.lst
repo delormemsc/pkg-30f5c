@@ -1,7 +1,7 @@
 # force-tunnel: домены, которых не хватает в списках Подкопа, но которые должны идти через туннель
 # одна строка = один домен (без www, покрывает поддомены)
 # при КАЖДОЙ публикации увеличивать serial — защита от отката
-# serial: 1
+# serial: 2
 
 # TBC Bank (Грузия)
 tbcbank.ge
@@ -22,3 +22,23 @@ chatgpt.com
 oaistatic.com
 oaiusercontent.com
 codex.openai.com
+
+# Вход и антибот OpenAI: логин и продление сессии ChatGPT/Codex идут через
+# Arkose Labs, он на AWS и в Cloudflare-подсети не попадает.
+arkoselabs.com
+
+# Anthropic / Claude / Claude Code
+# В списках Подкопа домены есть, но адреса Anthropic лежат в её собственной
+# сети 160.79.104.0/21, а не в Cloudflare, поэтому подсеть добавлена
+# в force-tunnel-cidr.lst — без неё в туннель попадает только тот адрес,
+# который срезолвился для перечисленного имени, а api.anthropic.com уходил
+# напрямую.
+anthropic.com
+claude.ai
+claude.com
+
+# GitHub: сюда постоянно ходят Claude Code и Codex (gh, MCP, установка
+# пакетов), и отсюда же приложение забирает эти самые policy-списки.
+github.com
+githubusercontent.com
+githubassets.com
