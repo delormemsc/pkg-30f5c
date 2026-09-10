@@ -1,0 +1,46 @@
+name: Sync Podkop Russia lists
+
+on:
+  schedule:
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - tools/**
+      - .github/workflows/sync-podkop.yml
+  pull_request:
+    paths:
+      - tools/**
+      - .github/workflows/sync-podkop.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: podkop-mirror-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test mirror
+        run: python3 -m unittest discover -s tools -p 'test_*.py'
+      - name: Fetch and validate both lists
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: python3 tools/sync_podkop.py
+      - name: Publish one snapshot commit
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          git add -- Russia/inside-raw.lst Russia/outside-raw.lst Russia/provenance.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Mirror Podkop Russia lists'
+          git push
