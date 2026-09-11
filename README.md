@@ -49,16 +49,33 @@ and `blocked.lst`, with their adjacent `.sig` files, are separate signed policy
 overlays. The mirror does not edit, regenerate or sign them. Its workflow stages
 only the three named files in `Russia/`.
 
-### Automatic signing and publication
+### Signing and publication
 
 Edit the existing policy's source in **`policy/<name>.lst`**. These are editable
 sources for the same four overlays, not additional lists or client endpoints.
 The root `.lst` and `.lst.sig` files are published artifacts: do not edit them
 directly. Clients keep downloading the same root URLs.
 
-`Sign and publish policy lists` runs on source changes pushed to `main` and can
-be started manually. Pull requests only validate; they cannot access the key or
-publish. The workflow:
+Signing happens **on the publisher's own machine, never in GitHub Actions**.
+The private Ed25519 key is deliberately absent from this repository's secrets:
+GitHub already controls distribution, so a key stored here would let one
+compromised account both host and sign `force-direct.lst`, the list that decides
+which traffic bypasses the tunnel. Rollback protection does not cover that case,
+because whoever can sign can also raise the serial. Keeping the key off GitHub
+preserves the separation the signatures exist for.
+
+To publish, on the machine holding the key (default path
+`~/.laosarmy/policy-signing-2026-08.key`, public key
+`dOidfEll74Z/2vmupX0tEUXjTWCksYPfVXBLkNgSorU=`):
+
+```sh
+git pull --ff-only
+POLICY_SIGNING_KEY="$(cat ~/.laosarmy/policy-signing-2026-08.key)" python3 tools/publish_policy.py --publish
+python3 tools/publish_policy.py --verify-published
+git add -- '*.lst' '*.lst.sig' && git commit -m 'policy lists: ...' && git push
+```
+
+The publisher:
 
 1. Checks all currently published signatures against the two keys embedded in
    Windows and Apple clients, and validates each source's purpose and entries.
@@ -66,31 +83,22 @@ publish. The workflow:
    source serial is a placeholder; it does not need manual increments. Unchanged
    files retain their exact bytes, signatures and serials.
 3. Signs with the current Ed25519 key, then verifies every new signature against
-   the client keys before staging any publication.
-4. Commits each changed list and its signature together, then pushes without
-   force. A shared lock with the mirror serializes publication; a conflicting
-   external push fails safely and can be retried manually against current main.
+   the client keys before writing any published file.
+4. Refuses the whole publication on a missing, malformed or different key, on an
+   invalid entry and on an exhausted serial, leaving the previous signed root
+   files in place. Do not generate a replacement key or commit it anywhere.
 
-One-time setup: in this repository's **Settings → Secrets and variables → Actions**,
-add **`POLICY_SIGNING_KEY`**, containing the existing unencrypted Ed25519 private
-key in PEM format from the established Mac publication process. Its public key
-must be `dOidfEll74Z/2vmupX0tEUXjTWCksYPfVXBLkNgSorU=` (the key that signs the
-current four files). The Mac script's default path is
-`~/.laosarmy/policy-signing-2026-08.key`. Do not generate a replacement key, commit
-the private key, or paste it into issues/logs. The workflow receives it only in
-the signing step's environment; the signer does not write it to disk or print it.
+Commit each changed list together with its signature, and never separately: a
+list without its matching signature is rejected by every client. `.gitattributes`
+disables line-ending conversion for signed root files, since even an LF/CRLF
+conversion invalidates their signatures. Raw distribution is cached for a few
+minutes, so compare SHA-256 of the raw file against the local one before
+claiming that an update reached clients. Clients apply a new snapshot on their
+next reconnect.
 
-After adding the secret, run **Sign and publish policy lists → Run workflow** on
-`main`. A missing, malformed or different key makes publication fail while the
-previous signed root files remain available. Merely adding a secret does not
-trigger a workflow. A successful no-change run still checks the signing key and
-all four published signatures. Check the publish job, not just the validation job,
-before claiming that an update is available to clients.
-
-The publication commit is made with `GITHUB_TOKEN`, so it does not recursively
-trigger another push workflow. The same run verifies the committed result.
-`.gitattributes` disables line-ending conversion for signed root files, since
-even an LF/CRLF conversion invalidates their signatures.
+`Validate policy lists` runs the offline tests, rechecks every published
+signature and reports sources awaiting signature. It never signs or publishes,
+and a pending source does not fail it.
 
 This does not change client region semantics: `force-tunnel.lst` is currently
 applied in the Russia region; the outside-Russia profile uses its regional list

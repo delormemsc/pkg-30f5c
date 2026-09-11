@@ -1,4 +1,4 @@
-"""Validate, sign and stage policy files; the workflow commits pairs atomically.
+"""Validate, sign and write policy files; commit each list with its signature.
 
 Edit policy/*.lst, never the signed root files. Serial numbers are assigned from
 the verified published version. No private key is required for --check.
