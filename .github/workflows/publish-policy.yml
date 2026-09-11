@@ -1,0 +1,80 @@
+name: Sign and publish policy lists
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - policy/**
+      - '*.lst'
+      - '*.lst.sig'
+      - tools/publish_policy.py
+      - tools/test_publish_policy.py
+      - tools/policy-requirements.txt
+      - .gitattributes
+      - .github/workflows/publish-policy.yml
+  pull_request:
+    paths:
+      - policy/**
+      - '*.lst'
+      - '*.lst.sig'
+      - tools/publish_policy.py
+      - tools/test_publish_policy.py
+      - tools/policy-requirements.txt
+      - .gitattributes
+      - .github/workflows/publish-policy.yml
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install signature verifier
+        run: python3 -m pip install -r tools/policy-requirements.txt
+      - name: Test signing, serials and failure handling
+        run: python3 -m unittest discover -s tools -p 'test_publish_policy.py' -v
+      - name: Check published signatures and pending sources
+        run: python3 tools/publish_policy.py --check
+
+  publish:
+    needs: validate
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    concurrency:
+      group: lists-main-publication
+      cancel-in-progress: false
+    steps:
+      # Fetch current main after acquiring the lock; don't sign a queued stale SHA.
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Install signature verifier
+        run: python3 -m pip install -r tools/policy-requirements.txt
+      - name: Sign changed policies and verify against client keys
+        env:
+          POLICY_SIGNING_KEY: ${{ secrets.POLICY_SIGNING_KEY }}
+        run: python3 tools/publish_policy.py --publish
+      - name: Publish lists and signatures in one commit
+        run: |
+          git add -- force-direct.lst force-direct.lst.sig force-tunnel.lst force-tunnel.lst.sig force-tunnel-cidr.lst force-tunnel-cidr.lst.sig blocked.lst blocked.lst.sig
+          if git diff --cached --quiet; then
+            echo 'All policies are current; signing key and published signatures verified.'
+            exit 0
+          fi
+          python3 tools/publish_policy.py --verify-published
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Publish verified signed policy lists'
+          git push origin HEAD:main
+      - name: Verify exact published Git bytes
+        run: |
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          python3 tools/publish_policy.py --verify-published

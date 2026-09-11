@@ -16,20 +16,19 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: podkop-mirror-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
   sync:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
+    concurrency:
+      group: lists-main-publication
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Test mirror
-        run: python3 -m unittest discover -s tools -p 'test_*.py'
+        run: python3 -m unittest discover -s tools -p 'test_sync_podkop.py'
       - name: Fetch and validate both lists
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: python3 tools/sync_podkop.py

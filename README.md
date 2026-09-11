@@ -46,19 +46,79 @@ last accepted regional snapshot or bundled bootstrap when an update fails.
 
 The root files `force-direct.lst`, `force-tunnel.lst`, `force-tunnel-cidr.lst`
 and `blocked.lst`, with their adjacent `.sig` files, are separate signed policy
-overlays. The mirror does not edit, regenerate or sign them. Their existing
-manual signing/publication process and Ed25519 keys remain separate from Actions.
-The workflow stages only the three named files in `Russia/`.
+overlays. The mirror does not edit, regenerate or sign them. Its workflow stages
+only the three named files in `Russia/`.
+
+### Automatic signing and publication
+
+Edit the existing policy's source in **`policy/<name>.lst`**. These are editable
+sources for the same four overlays, not additional lists or client endpoints.
+The root `.lst` and `.lst.sig` files are published artifacts: do not edit them
+directly. Clients keep downloading the same root URLs.
+
+`Sign and publish policy lists` runs on source changes pushed to `main` and can
+be started manually. Pull requests only validate; they cannot access the key or
+publish. The workflow:
+
+1. Checks all currently published signatures against the two keys embedded in
+   Windows and Apple clients, and validates each source's purpose and entries.
+2. Assigns each changed file the verified published serial **plus one**. The
+   source serial is a placeholder; it does not need manual increments. Unchanged
+   files retain their exact bytes, signatures and serials.
+3. Signs with the current Ed25519 key, then verifies every new signature against
+   the client keys before staging any publication.
+4. Commits each changed list and its signature together, then pushes without
+   force. A shared lock with the mirror serializes publication; a conflicting
+   external push fails safely and can be retried manually against current main.
+
+One-time setup: in this repository's **Settings → Secrets and variables → Actions**,
+add **`POLICY_SIGNING_KEY`**, containing the existing unencrypted Ed25519 private
+key in PEM format from the established Mac publication process. Its public key
+must be `dOidfEll74Z/2vmupX0tEUXjTWCksYPfVXBLkNgSorU=` (the key that signs the
+current four files). The Mac script's default path is
+`~/.laosarmy/policy-signing-2026-08.key`. Do not generate a replacement key, commit
+the private key, or paste it into issues/logs. The workflow receives it only in
+the signing step's environment; the signer does not write it to disk or print it.
+
+After adding the secret, run **Sign and publish policy lists → Run workflow** on
+`main`. A missing, malformed or different key makes publication fail while the
+previous signed root files remain available. Merely adding a secret does not
+trigger a workflow. A successful no-change run still checks the signing key and
+all four published signatures. Check the publish job, not just the validation job,
+before claiming that an update is available to clients.
+
+The publication commit is made with `GITHUB_TOKEN`, so it does not recursively
+trigger another push workflow. The same run verifies the committed result.
+`.gitattributes` disables line-ending conversion for signed root files, since
+even an LF/CRLF conversion invalidates their signatures.
+
+This does not change client region semantics: `force-tunnel.lst` is currently
+applied in the Russia region; the outside-Russia profile uses its regional list
+and `blocked.lst`, without Russian policy overrides.
 
 ## Local verification
 
-Requires Python 3.11 or newer; no third-party packages:
+Mirror checks require Python 3.11 or newer; no third-party packages:
 
 ```sh
-python3 -m unittest discover -s tools -p 'test_*.py' -v
+python3 -m unittest discover -s tools -p 'test_sync_podkop.py' -v
 python3 tools/sync_podkop.py
 git diff -- Russia/
 ```
 
 The first command is offline. The second reads the public upstream and updates
 the local working tree only; it never commits or pushes.
+
+Policy checks (Python 3.11+):
+
+```sh
+python3 -m pip install -r tools/policy-requirements.txt
+python3 -m unittest discover -s tools -p 'test_publish_policy.py' -v
+python3 tools/publish_policy.py --check
+python3 tools/publish_policy.py --verify-published
+```
+
+Tests use ephemeral test keys in temporary directories. Production signatures
+are also verified separately with the real public keys; no production private
+key is needed for the validation suite. `--publish` requires the secret in the
+`POLICY_SIGNING_KEY` environment variable; GitHub Actions is the normal publisher.

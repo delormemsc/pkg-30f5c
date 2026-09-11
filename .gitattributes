@@ -1,0 +1,6 @@
+# A signature covers exact bytes. Never rewrite published policy line endings.
+/*.lst -text
+/*.lst.sig -text
+/policy/*.lst text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
