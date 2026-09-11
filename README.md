@@ -129,4 +129,5 @@ python3 tools/publish_policy.py --verify-published
 Tests use ephemeral test keys in temporary directories. Production signatures
 are also verified separately with the real public keys; no production private
 key is needed for the validation suite. `--publish` requires the secret in the
-`POLICY_SIGNING_KEY` environment variable; GitHub Actions is the normal publisher.
+`POLICY_SIGNING_KEY` environment variable on the publisher's own machine.
+GitHub Actions only validates; the private key stays off GitHub.
