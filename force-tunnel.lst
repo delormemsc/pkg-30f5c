@@ -1,7 +1,7 @@
 # force-tunnel: домены, которых не хватает в списках Подкопа, но которые должны идти через туннель
 # одна строка = один домен (без www, покрывает поддомены)
 # при КАЖДОЙ публикации увеличивать serial — защита от отката
-# serial: 2
+# serial: 3
 
 # TBC Bank (Грузия)
 tbcbank.ge
@@ -22,6 +22,14 @@ chatgpt.com
 oaistatic.com
 oaiusercontent.com
 codex.openai.com
+ab.chatgpt.com
+chat.openai.com
+
+# Дополнительные обращения Codex Desktop, подтверждённые DNS-событиями
+# его процессов 11.09.2026. Точные имена, без перенаправления всего Google.
+mtalk.google.com
+update.googleapis.com
+a.nel.cloudflare.com
 
 # Вход и антибот OpenAI: логин и продление сессии ChatGPT/Codex идут через
 # Arkose Labs, он на AWS и в Cloudflare-подсети не попадает.
@@ -42,3 +50,11 @@ claude.com
 github.com
 githubusercontent.com
 githubassets.com
+
+# BitBox Slave: DNS и TCP подтверждены при запуске 11.09.2026.
+archive-cl.powertuner.net
+archive.m.powertuner.net
+archive.powertuner.net
+bitbox-cl.powertuner.net
+bitbox.m.powertuner.net
+bitbox.powertuner.net
