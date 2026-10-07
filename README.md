@@ -5,7 +5,7 @@
 These files are byte-for-byte mirrors of the published RAW lists from
 [itdoginfo/allow-domains](https://github.com/itdoginfo/allow-domains):
 
-- [Russia/inside-raw.lst](https://raw.githubusercontent.com/delormemsc/pkg-30f5c/main/Russia/inside-raw.lst): services for users inside Russia.
+- [Russia/inside-raw.lst](https://raw.githubusercontent.com/delormemsc/pkg-30f5c/main/Russia/inside-raw.lst): resources blocked or geo-restricted for users inside Russia.
 - [Russia/outside-raw.lst](https://raw.githubusercontent.com/delormemsc/pkg-30f5c/main/Russia/outside-raw.lst): Russian services for users outside Russia.
 - [Russia/provenance.json](https://raw.githubusercontent.com/delormemsc/pkg-30f5c/main/Russia/provenance.json): immutable upstream commit, commit date, mirror date, source URLs, byte/entry counts and SHA-256 for both files.
 
@@ -17,10 +17,12 @@ Files are copied unmodified: additions and removals follow upstream, without
 combining these lists with local policy overrides. A leading dot is permitted
 for suffixes such as `.ua`; consumers may normalize it for domain matching.
 
-The `Sync Podkop Russia lists` GitHub Actions workflow runs daily at **09:17 UTC**
-and can be started manually using `workflow_dispatch`. GitHub may delay scheduled
-runs. Pushes/PRs affecting the workflow or tools run the offline regression tests
-only. The upstream generator currently runs on source changes and on Mondays at
+The `Sync Podkop Russia lists` GitHub Actions workflow is scheduled daily at
+**09:17 UTC** and can be started manually using `workflow_dispatch`. GitHub
+delays scheduled runs: in practice they start several hours later (observed
+between 13:00 and 18:30 UTC), so a Monday upstream change usually appears the
+same afternoon or evening. Pushes/PRs affecting the workflow or tools run the
+offline regression tests only. The upstream generator currently runs on source changes and on Mondays at
 08:29 UTC; the mirror consumes its generated RAW artifacts, not its scripts.
 
 Each sync resolves upstream `main` once, downloads both lists using that immutable
@@ -64,16 +66,24 @@ which traffic bypasses the tunnel. Rollback protection does not cover that case,
 because whoever can sign can also raise the serial. Keeping the key off GitHub
 preserves the separation the signatures exist for.
 
-To publish, on the machine holding the key (default path
-`~/.laosarmy/policy-signing-2026-08.key`, public key
-`dOidfEll74Z/2vmupX0tEUXjTWCksYPfVXBLkNgSorU=`):
+To publish, on the machine holding the key (public key
+`dOidfEll74Z/2vmupX0tEUXjTWCksYPfVXBLkNgSorU=`; replace the placeholder path
+below with the key file's real location):
 
 ```sh
 git pull --ff-only
-POLICY_SIGNING_KEY="$(cat ~/.laosarmy/policy-signing-2026-08.key)" python3 tools/publish_policy.py --publish
+python3 -m pip install -r tools/policy-requirements.txt
+POLICY_SIGNING_KEY="$(cat /path/to/policy-signing.key)" python3 tools/publish_policy.py --publish
 python3 tools/publish_policy.py --verify-published
-git add -- '*.lst' '*.lst.sig' && git commit -m 'policy lists: ...' && git push
+git add -- policy/*.lst \
+  force-direct.lst force-direct.lst.sig force-tunnel.lst force-tunnel.lst.sig \
+  force-tunnel-cidr.lst force-tunnel-cidr.lst.sig blocked.lst blocked.lst.sig
+git commit -m 'policy lists: ...' && git push
 ```
+
+Stage the signed files by explicit path. A glob such as `'*.lst'` also matches
+`Russia/*.lst` in Git pathspecs and would commit a locally refreshed mirror
+together with the policy change.
 
 The publisher:
 
@@ -93,16 +103,19 @@ list without its matching signature is rejected by every client. `.gitattributes
 disables line-ending conversion for signed root files, since even an LF/CRLF
 conversion invalidates their signatures. Raw distribution is cached for a few
 minutes, so compare SHA-256 of the raw file against the local one before
-claiming that an update reached clients. Clients apply a new snapshot on their
-next reconnect.
+claiming that an update reached clients. Clients check for updates at most once
+per 24 hours (sooner after a manual check, with a 30-minute pause after a failed
+attempt); a downloaded snapshot takes effect after the next reconnect, and large
+changes wait for the user's confirmation.
 
 `Validate policy lists` runs the offline tests, rechecks every published
 signature and reports sources awaiting signature. It never signs or publishes,
 and a pending source does not fail it.
 
-This does not change client region semantics: `force-tunnel.lst` is currently
-applied in the Russia region; the outside-Russia profile uses its regional list
-and `blocked.lst`, without Russian policy overrides.
+Region semantics: in the Russia region clients use `Russia/inside-raw.lst`
+together with all four signed overlays; outside Russia they use
+`Russia/outside-raw.lst` and `blocked.lst` only, without `force-direct.lst`,
+`force-tunnel.lst` or `force-tunnel-cidr.lst`.
 
 ## Local verification
 
