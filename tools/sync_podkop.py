@@ -3,6 +3,7 @@
 
 from datetime import datetime, timezone
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -13,6 +14,10 @@ from urllib.request import Request, urlopen
 
 UPSTREAM = 'itdoginfo/allow-domains'
 FILES = ('inside-raw.lst', 'outside-raw.lst')
+SUBNET_FILES = ('Subnets/IPv4/meta.lst', 'Subnets/IPv4/telegram.lst')
+LOCAL_RANGES = tuple(map(ipaddress.IPv4Network, ('0.0.0.0/8', '10.0.0.0/8',
+    '100.64.0.0/10', '127.0.0.0/8', '169.254.0.0/16', '172.16.0.0/12',
+    '192.168.0.0/16', '198.18.0.0/15', '224.0.0.0/3')))
 MAX_BYTES = 2_000_000
 MAX_ENTRIES = 10_000
 LABEL = re.compile(r'[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\Z')
@@ -41,6 +46,8 @@ def validate(data):
         # Upstream uses a leading dot for TLD suffixes such as .ua.
         domain = line[1:] if line.startswith('.') else line
         labels = domain.split('.')
+        if len(labels) == 1 and not re.fullmatch(r'[a-zA-Z]{2,24}', domain):
+            raise ValueError('invalid single-label suffix')
         if (len(domain) > 253 or not all(LABEL.fullmatch(label) for label in labels)
                 or not re.search(r'[a-zA-Z]', labels[-1])):
             raise ValueError('invalid domain suffix')
@@ -48,6 +55,22 @@ def validate(data):
         if normalized in seen:
             raise ValueError('duplicate domain suffix')
         seen.add(normalized)
+    return len(lines)
+
+
+def validate_subnets(data):
+    if not data or len(data) > 256_000:
+        raise ValueError('empty or oversized subnet list')
+    lines = data.decode('ascii').splitlines()
+    if not 1 <= len(lines) <= 4000:
+        raise ValueError('subnet count is outside allowed bounds')
+    seen = set()
+    for value in lines:
+        network = ipaddress.IPv4Network(value, strict=True)
+        if (network.prefixlen < 8 or str(network) != value or network in seen
+                or any(network.overlaps(local) for local in LOCAL_RANGES)):
+            raise ValueError('invalid subnet')
+        seen.add(network)
     return len(lines)
 
 
@@ -62,11 +85,12 @@ def sync(root, fetch=download):
 
     contents = {}
     metadata = {}
-    for name in FILES:
-        url = f'https://raw.githubusercontent.com/{UPSTREAM}/{sha}/Russia/{name}'
-        data = fetch(url, MAX_BYTES)
-        count = validate(data)
-        contents[name] = data
+    for name in FILES + SUBNET_FILES:
+        path = f'Russia/{name}' if name in FILES else name
+        url = f'https://raw.githubusercontent.com/{UPSTREAM}/{sha}/{path}'
+        data = fetch(url, MAX_BYTES if name in FILES else 256_000)
+        count = validate(data) if name in FILES else validate_subnets(data)
+        contents[path] = data
         metadata[name] = {'source_url': url, 'sha256': hashlib.sha256(data).hexdigest(),
                           'bytes': len(data), 'entries': count}
 
@@ -79,21 +103,23 @@ def sync(root, fetch=download):
         previous = json.loads(provenance_path.read_text())
         previous.pop('mirrored_at', None)
         if (previous == provenance and all(
-                (destination / name).read_bytes() == data for name, data in contents.items())):
+                (root / name).read_bytes() == data for name, data in contents.items())):
             return False
     except (OSError, ValueError):
         pass
     provenance['mirrored_at'] = datetime.now(timezone.utc).isoformat(timespec='seconds')
-    contents['provenance.json'] = (json.dumps(provenance, indent=2) + '\n').encode()
+    contents['Russia/provenance.json'] = (json.dumps(provenance, indent=2) + '\n').encode()
 
     # All fetches and validation finish before touching published files. Git is
     # the publication transaction: the workflow never commits after any failure.
     with tempfile.TemporaryDirectory(prefix='.podkop-', dir=root) as stage:
         for name, data in contents.items():
+            (Path(stage) / name).parent.mkdir(parents=True, exist_ok=True)
             (Path(stage) / name).write_bytes(data)
         destination.mkdir(exist_ok=True)
         for name in contents:
-            os.replace(Path(stage) / name, destination / name)
+            (root / name).parent.mkdir(parents=True, exist_ok=True)
+            os.replace(Path(stage) / name, root / name)
     return True
 
 

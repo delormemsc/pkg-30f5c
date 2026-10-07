@@ -7,7 +7,10 @@ These files are byte-for-byte mirrors of the published RAW lists from
 
 - [Russia/inside-raw.lst](https://raw.githubusercontent.com/delormemsc/pkg-30f5c/main/Russia/inside-raw.lst): services for users inside Russia.
 - [Russia/outside-raw.lst](https://raw.githubusercontent.com/delormemsc/pkg-30f5c/main/Russia/outside-raw.lst): Russian services for users outside Russia.
-- [Russia/provenance.json](https://raw.githubusercontent.com/delormemsc/pkg-30f5c/main/Russia/provenance.json): immutable upstream commit, commit date, mirror date, source URLs, byte/entry counts and SHA-256 for both files.
+- [Russia/provenance.json](https://raw.githubusercontent.com/delormemsc/pkg-30f5c/main/Russia/provenance.json): immutable upstream commit, commit date, mirror date, source URLs, byte/entry counts and SHA-256 for all mirrored files.
+
+The mirror also includes `Subnets/IPv4/meta.lst` and `Subnets/IPv4/telegram.lst`
+from the same immutable revision, recorded in `Russia/provenance.json`.
 
 The original data, authorship, purpose and any applicable upstream terms remain
 with the upstream project; this mirror adds no new license grant. Consult the
@@ -23,9 +26,11 @@ runs. Pushes/PRs affecting the workflow or tools run the offline regression test
 only. The upstream generator currently runs on source changes and on Mondays at
 08:29 UTC; the mirror consumes its generated RAW artifacts, not its scripts.
 
-Each sync resolves upstream `main` once, downloads both lists using that immutable
-commit, and validates both before replacing either file. Limits are 2,000,000
-bytes and 10,000 entries per file. Empty lists, invalid suffixes, duplicate
+Each sync resolves upstream `main` once, downloads all four lists using that immutable
+commit, and validates all files before replacement. Limits are 2,000,000
+bytes and 10,000 entries per domain file. Single-label suffixes must contain
+2–24 ASCII letters. Subnet files allow at most 256,000 bytes and 4,000 unique,
+canonical IPv4 networks with prefix /8 or longer, excluding local/service ranges. Empty lists, invalid suffixes, duplicate
 suffixes (case-insensitive, ignoring a leading dot), truncated responses and
 failed downloads reject the entire update. Large valid changes are mirrored;
 the client applies its own anomaly approval policy against its regional baseline.

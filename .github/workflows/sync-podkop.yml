@@ -29,13 +29,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Test mirror
         run: python3 -m unittest discover -s tools -p 'test_sync_podkop.py'
-      - name: Fetch and validate both lists
+      - name: Fetch and validate snapshot
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: python3 tools/sync_podkop.py
       - name: Publish one snapshot commit
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         run: |
-          git add -- Russia/inside-raw.lst Russia/outside-raw.lst Russia/provenance.json
+          git add -- Russia/inside-raw.lst Russia/outside-raw.lst Russia/provenance.json Subnets/IPv4/meta.lst Subnets/IPv4/telegram.lst
           if git diff --cached --quiet; then
             exit 0
           fi

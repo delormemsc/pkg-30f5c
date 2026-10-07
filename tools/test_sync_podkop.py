@@ -36,7 +36,7 @@ class SyncTests(unittest.TestCase):
         return {str(p.relative_to(self.root)): p.read_bytes()
                 for p in self.root.rglob('*') if p.is_file()}
 
-    def fetcher(self, inside=INSIDE, outside=OUTSIDE):
+    def fetcher(self, inside=INSIDE, outside=OUTSIDE, meta=b'31.13.24.0/21\n', telegram=b'91.108.4.0/22\n'):
         def fetch(url, max_bytes):
             if url == 'https://api.github.com/repos/itdoginfo/allow-domains/commits/main':
                 return COMMIT
@@ -47,6 +47,10 @@ class SyncTests(unittest.TestCase):
                 if isinstance(outside, Exception):
                     raise outside
                 return outside
+            if url == f'https://raw.githubusercontent.com/itdoginfo/allow-domains/{SHA}/Subnets/IPv4/meta.lst':
+                return meta
+            if url == f'https://raw.githubusercontent.com/itdoginfo/allow-domains/{SHA}/Subnets/IPv4/telegram.lst':
+                return telegram
             raise AssertionError('unexpected or unpinned upstream URL: ' + url)
         return fetch
 
@@ -61,6 +65,33 @@ class SyncTests(unittest.TestCase):
         self.assertEqual(metadata['upstream_committed_at'], '2026-09-10T09:00:00Z')
         self.assertEqual(metadata['files']['outside-raw.lst']['sha256'], hashlib.sha256(OUTSIDE).hexdigest())
         self.assertEqual(metadata['files']['outside-raw.lst']['entries'], 2)
+
+    def test_subnets_share_the_pinned_snapshot_and_provenance(self):
+        self.sync.sync(self.root, fetch=self.fetcher())
+        expected = {'Subnets/IPv4/meta.lst': b'31.13.24.0/21\n',
+                    'Subnets/IPv4/telegram.lst': b'91.108.4.0/22\n'}
+        metadata = json.loads((self.root / 'Russia/provenance.json').read_text())
+        for name, data in expected.items():
+            self.assertTrue((self.root / name).is_file(), name)
+            self.assertEqual((self.root / name).read_bytes(), data)
+            self.assertEqual(metadata['files'][name]['sha256'], hashlib.sha256(data).hexdigest())
+            self.assertIn(SHA, metadata['files'][name]['source_url'])
+
+    def test_single_label_suffix_bounds(self):
+        for value in (b'.xn--p1ai\n', b'.a\n', b'.' + b'a' * 25 + b'\n'):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                self.sync.validate(value)
+        self.assertEqual(self.sync.validate(b'.ua\n' + b'a' * 24 + b'\n'), 2)
+
+    def test_invalid_subnets_preserve_snapshot(self):
+        values = [b'0.0.0.0/0\n', b'8.0.0.0/7\n', b'8.8.8.1/24\n',
+                  b'2001:db8::/32\n', b'garbage\n', b'']
+        values.append(''.join(f'11.{i//256}.{i%256}.0/24\n' for i in range(4001)).encode())
+        for data in values:
+            before = self.snapshot()
+            with self.subTest(data=data[:60]), self.assertRaises(ValueError):
+                self.sync.sync(self.root, fetch=self.fetcher(meta=data))
+            self.assertEqual(before, self.snapshot())
 
     def test_partial_download_does_not_overwrite_either_list_or_provenance(self):
         before = self.snapshot()
