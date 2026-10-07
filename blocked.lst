@@ -1,9 +1,3 @@
-# blocked: серверное ДОПОЛНЕНИЕ списка блокировки (встроенный список
-# приложения действует всегда и этим файлом не заменяется).
-# одна строка = один домен (без www, покрывает поддомены)
-#
-# Публикация: правка policy/blocked.lst → tools/publish_policy.py --publish
-# локальным ключом → коммит .lst вместе с .lst.sig. Serial ставит скрипт.
-# serial: 3
-#
-# Пока сервер ничего не добавляет: встроенного списка достаточно.
+# blocked: Blocked domain additions for all regions; at most 500 domains.
+# Source serial is a placeholder; the publisher assigns the next verified serial.
+# serial: 4

@@ -1,9 +1,6 @@
-# force-tunnel-cidr: статические подсети, которые всегда идут через туннель
-# одна строка = один IPv4 CIDR, # — комментарий
-# serial ставит tools/publish_policy.py при публикации — защита от отката
-# serial: 3
-
-# Cloudflare (официальный список cloudflare.com/ips-v4)
+# force-tunnel-cidr: RU tunnel IPv4 subnets; /8 or narrower, at most 4000 entries.
+# Source serial is a placeholder; the publisher assigns the next verified serial.
+# serial: 4
 173.245.48.0/20
 103.21.244.0/22
 103.22.200.0/22
@@ -19,15 +16,7 @@
 104.24.0.0/14
 172.64.0.0/13
 131.0.72.0/22
-
-# Anthropic PBC (whois: NetRange 160.79.104.0 – 160.79.111.255).
-# Claude.ai, api.anthropic.com и console.anthropic.com живут здесь, а не в
-# Cloudflare. Без этой подсети в туннель попадал только адрес, срезолвленный
-# для claude.ai, и Claude Code уходил напрямую — браузер при этом работал.
 160.79.104.0/21
-
-# GitHub (github.com, api.github.com, codeload) и его CDN
-# (raw/objects.githubusercontent.com). Не Cloudflare.
 140.82.112.0/20
 192.30.252.0/22
 185.199.108.0/22

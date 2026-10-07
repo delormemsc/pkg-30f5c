@@ -14,7 +14,19 @@
       "sha256": "1eea61579a34f125cc079f20c55398199ba407efcc3ee87023bee5e4a9ca2671",
       "bytes": 564,
       "entries": 39
+    },
+    "Subnets/IPv4/meta.lst": {
+      "source_url": "https://raw.githubusercontent.com/itdoginfo/allow-domains/2d2d2cabc137b50cae9646414330675acabb4cf0/Subnets/IPv4/meta.lst",
+      "sha256": "0ef7fe780749ce830027f154fec4e5d77ef9cc5eb56453afbe36ed827e581ec3",
+      "bytes": 1260,
+      "entries": 78
+    },
+    "Subnets/IPv4/telegram.lst": {
+      "source_url": "https://raw.githubusercontent.com/itdoginfo/allow-domains/2d2d2cabc137b50cae9646414330675acabb4cf0/Subnets/IPv4/telegram.lst",
+      "sha256": "985fc6c3cc167f67baa8d7fb4b27f1b9307f179639c421c0900c0f04b7b63cac",
+      "bytes": 151,
+      "entries": 10
     }
   },
-  "mirrored_at": "2026-10-05T18:28:34+00:00"
+  "mirrored_at": "2026-10-07T22:13:24+00:00"
 }
