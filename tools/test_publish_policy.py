@@ -11,6 +11,15 @@ import publish_policy as policy
 
 
 class PublishedCompatibilityTests(unittest.TestCase):
+    def test_publisher_trusts_only_its_publication_key(self):
+        self.assertEqual(policy.CLIENT_KEYS, (policy.SIGNING_PUBLIC_KEY,))
+
+    def test_untrusted_signature_is_rejected_without_parsing_the_list(self):
+        body = b'ephemeral signature fixture'
+        signature = Ed25519PrivateKey.generate().sign(body)
+        with self.assertRaisesRegex(ValueError, 'signature rejected'):
+            policy.verify_signature('force-direct', body, base64.b64encode(signature))
+
     def test_real_published_files_are_accepted_by_client_keys(self):
         self.assertEqual(set(policy.verify_published(policy.ROOT)), set(policy.NAMES))
 

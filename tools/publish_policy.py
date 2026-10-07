@@ -17,13 +17,12 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 
 ROOT = Path(__file__).resolve().parents[1]
 NAMES = ('force-direct', 'force-tunnel', 'force-tunnel-cidr', 'blocked')
-# Identical slots in Windows VerifiedRules.cs and Apple RulesUpdater.swift.
+# Publisher trusts its single publication key.
 CLIENT_KEYS = (
-    'at3grjFVOpGAydXmM5Z1xPsPDZtoPkfEL2PvVlYtjrA=',
     'dOidfEll74Z/2vmupX0tEUXjTWCksYPfVXBLkNgSorU=',
 )
-# All four existing published lists use this key. Rotation is a separate change.
-SIGNING_PUBLIC_KEY = CLIENT_KEYS[1]
+# All published files are signed with this publication key.
+SIGNING_PUBLIC_KEY = CLIENT_KEYS[0]
 SERIAL = re.compile(r'^#\s*serial:\s*([0-9]+)\s*$', re.IGNORECASE)
 MAX_SERIAL = 2**63 - 1
 
@@ -72,7 +71,7 @@ def verify_signature(name, body, encoded):
             return
         except InvalidSignature:
             pass
-    raise ValueError(f'{name}: signature rejected by both client keys')
+    raise ValueError(f'{name}: signature rejected by publisher trust policy')
 
 
 def verify_published(root):
